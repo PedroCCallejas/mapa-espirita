@@ -1,6 +1,6 @@
 {
-  "name": "centros-espiritas-proximos",
-  "version": "1.0.0",
+  "name": "mapa-espirita",
+  "version": "1.0.1",
   "private": true,
   "main": "expo/AppEntry",
   "scripts": {

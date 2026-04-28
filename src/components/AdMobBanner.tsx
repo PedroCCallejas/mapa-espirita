@@ -1,65 +1,52 @@
-import { useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import {
   BannerAd,
   BannerAdSize,
   TestIds,
-  useForeground,
 } from 'react-native-google-mobile-ads';
+import { useState } from 'react';
 
-type AdMobBannerProps = {
-  size?: (typeof BannerAdSize)[keyof typeof BannerAdSize];
-};
+const androidBannerId = process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID;
+const iosBannerId = process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_ID;
 
-const realUnitId = Platform.select({
-  android: process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID,
-  ios: process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_ID,
-});
-
-export function AdMobBanner({
-  size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER,
-}: AdMobBannerProps) {
-  const bannerRef = useRef<BannerAd>(null);
+export function AdMobBanner() {
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
 
-  useForeground(() => {
-    if (Platform.OS === 'ios' && !hasLoadFailed) {
-      bannerRef.current?.load();
-    }
+  const realUnitId = Platform.select({
+    android: androidBannerId,
+    ios: iosBannerId,
   });
 
   const unitId = realUnitId || TestIds.ADAPTIVE_BANNER;
 
-  if (!unitId || hasLoadFailed) {
+  if (hasLoadFailed) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ alignItems: 'center', marginVertical: 12 }}>
       <BannerAd
-        ref={bannerRef}
-        unitId={unitId}
-        size={size}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: true,
-        }}
-        onAdFailedToLoad={(error) => {
-          setHasLoadFailed(true);
+          unitId={unitId}
+          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+          requestOptions={{
+            requestNonPersonalizedAdsOnly: true,
+          }}
+          onAdFailedToLoad={(error) => {
+            const message = String(error?.message ?? '');
+            const name = String(error?.name ?? '');
+            const errorText = `${name} ${message}`.toLowerCase();
 
-          if (__DEV__) {
-            console.warn('Falha ao carregar banner AdMob:', error.message);
-          }
-        }}
-      />
+            if (errorText.includes('no-fill')) {
+              console.info('[AdMob] Nenhum anúncio disponível no momento.');
+              setHasLoadFailed(true);
+              return;
+            }
+
+            console.warn('[AdMob] Falha ao carregar banner:', error);
+            setHasLoadFailed(true);
+          }}
+        />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginBottom: 8,
-    marginTop: 12,
-    minHeight: 56,
-  },
-});

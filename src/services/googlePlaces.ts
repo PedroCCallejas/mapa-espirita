@@ -5,11 +5,43 @@ const GOOGLE_PLACES_BASE_URL = 'https://places.googleapis.com/v1';
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const SEARCH_TERMS = [
   'centro espirita',
-  'espiritismo',
   'casa espirita',
-  'centro espiritualista',
+  'sociedade espirita',
+  'grupo espirita',
+  'lar espirita',
+  'federacao espirita',
+  'fraternidade espirita',
+  'kardecista',
 ];
-const BLOCKED_NAME_TERMS = ['umbanda', 'terreiro', 'casa de umbanda'];
+const ALLOWED_NAME_TERMS = [
+  'espirita',
+  'kardec',
+  'kardecista',
+  'chico xavier',
+  'bezerra de menezes',
+  'allan kardec',
+  'lar espirita',
+  'casa espirita',
+  'centro espirita',
+  'sociedade espirita',
+  'fraternidade espirita',
+];
+const BLOCKED_NAME_TERMS = [
+  'umbanda',
+  'terreiro',
+  'candomble',
+  'jeova',
+  'testemunhas de jeova',
+  'igreja',
+  'evangelica',
+  'catolica',
+  'paroquia',
+  'templo',
+  'condominio',
+  'residencial',
+  'florais',
+  'salao do reino',
+];
 
 const SEARCH_FIELD_MASK = [
   'places.id',
@@ -152,16 +184,33 @@ function mapStatus(openNow?: boolean): Center['status'] {
   return 'UNKNOWN';
 }
 
-function normalizeText(value: string) {
-  return value
+export function normalizeText(text: string) {
+  return text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 }
 
-function shouldExcludePlace(name: string) {
-  const normalizedName = normalizeText(name);
+export function isBlockedPlace(placeName: string) {
+  const normalizedName = normalizeText(placeName);
   return BLOCKED_NAME_TERMS.some((term) => normalizedName.includes(term));
+}
+
+export function isAllowedSpiritistCenter(placeName: string) {
+  const normalizedName = normalizeText(placeName);
+  return ALLOWED_NAME_TERMS.some((term) => normalizedName.includes(term));
+}
+
+export function filterSpiritistCenters(results: Center[]) {
+  return results.filter((result) => {
+    if (isBlockedPlace(result.name) || !isAllowedSpiritistCenter(result.name)) {
+      console.info(`[googlePlaces] Resultado ignorado pelo filtro: ${result.name}`);
+      return false;
+    }
+
+    console.info(`[googlePlaces] Resultado aceito: ${result.name}`);
+    return true;
+  });
 }
 
 function mergeCenter(existing: Center, incoming: Center): Center {
@@ -257,27 +306,21 @@ async function searchText(query: string, origin: Coordinates) {
 export async function searchNearbyCenters(origin: Coordinates, areaLabel?: string) {
   const searches = await Promise.all(
     SEARCH_TERMS.map((term) => {
-      const query = areaLabel ? `${term} em ${areaLabel}` : term;
+      const query = areaLabel ? `${term} proximo de ${areaLabel}` : term;
       return searchText(query, origin);
     }),
   );
+  const mappedCenters = searches
+    .flat()
+    .map((place) => mapPlaceToCenter(place, origin))
+    .filter((center): center is Center => Boolean(center));
+  const filteredCenters = filterSpiritistCenters(mappedCenters);
 
   const deduplicatedCenters = new Map<string, Center>();
 
-  searches.flat().forEach((place) => {
-    const mapped = mapPlaceToCenter(place, origin);
-
-    if (!mapped) {
-      return;
-    }
-
-    if (shouldExcludePlace(mapped.name)) {
-      console.info(`[googlePlaces] Resultado ignorado pelo filtro de nome: ${mapped.name}`);
-      return;
-    }
-
-    const existing = deduplicatedCenters.get(mapped.id);
-    deduplicatedCenters.set(mapped.id, existing ? mergeCenter(existing, mapped) : mapped);
+  filteredCenters.forEach((center) => {
+    const existing = deduplicatedCenters.get(center.id);
+    deduplicatedCenters.set(center.id, existing ? mergeCenter(existing, center) : center);
   });
 
   return [...deduplicatedCenters.values()]

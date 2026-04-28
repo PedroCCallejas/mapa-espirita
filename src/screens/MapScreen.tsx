@@ -55,6 +55,7 @@ export function MapScreen({ route }: MapScreenProps) {
   const { centers, origin, originLabel } = route.params;
   const validCenters = centers.filter((center) => isValidCoordinate(center.location));
   const hasValidOrigin = isValidCoordinate(origin);
+  const runtimeMapsApiKeyConfigured = Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
   const invalidCenterCount = centers.length - validCenters.length;
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(validCenters[0] ?? null);
   const mapRegion = hasValidOrigin
@@ -64,9 +65,33 @@ export function MapScreen({ route }: MapScreenProps) {
       : null;
 
   useEffect(() => {
+    console.info('[MapScreen] Diagnostico inicial do mapa:', {
+      centersRecebidos: centers.map((center) => ({
+        id: center.id,
+        latitude: center.location.latitude,
+        longitude: center.location.longitude,
+        name: center.name,
+      })),
+      chaveGoogleMapsConfiguradaEmRuntime: runtimeMapsApiKeyConfigured,
+      initialRegion: mapRegion,
+      originLabel,
+      userLocation: hasValidOrigin ? origin : null,
+      validCentersCount: validCenters.length,
+    });
+  }, [
+    centers,
+    hasValidOrigin,
+    mapRegion,
+    origin,
+    originLabel,
+    runtimeMapsApiKeyConfigured,
+    validCenters.length,
+  ]);
+
+  useEffect(() => {
     if (invalidCenterCount > 0) {
       console.warn(
-        `[MapScreen] ${invalidCenterCount} centro(s) foram ignorados porque vieram sem coordenadas válidas para o mapa.`,
+        `[MapScreen] ${invalidCenterCount} centro(s) foram ignorados porque vieram sem coordenadas validas para o mapa.`,
       );
     }
   }, [invalidCenterCount]);
@@ -74,10 +99,18 @@ export function MapScreen({ route }: MapScreenProps) {
   useEffect(() => {
     if (!hasValidOrigin) {
       console.warn(
-        '[MapScreen] Origem da busca indisponível ou inválida. O mapa será aberto com base no primeiro centro válido.',
+        '[MapScreen] Origem da busca indisponivel ou invalida. O mapa sera aberto com base no primeiro centro valido.',
       );
     }
   }, [hasValidOrigin]);
+
+  useEffect(() => {
+    if (!runtimeMapsApiKeyConfigured) {
+      console.warn(
+        '[MapScreen] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY nao foi encontrada em runtime. Gere uma nova build nativa apos configurar app.config.ts e o Google Cloud.',
+      );
+    }
+  }, [runtimeMapsApiKeyConfigured]);
 
   useEffect(() => {
     if (!selectedCenter || validCenters.some((center) => center.id === selectedCenter.id)) {
@@ -94,6 +127,12 @@ export function MapScreen({ route }: MapScreenProps) {
           {mapRegion ? (
             <MapView
               initialRegion={mapRegion}
+              onMapReady={() => {
+                console.info('[MapScreen] MapView pronto para renderizar.', {
+                  initialRegion: mapRegion,
+                  provider: Platform.OS === 'android' ? 'google' : 'default',
+                });
+              }}
               provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
               showsUserLocation={hasValidOrigin}
               style={styles.map}
@@ -125,18 +164,18 @@ export function MapScreen({ route }: MapScreenProps) {
             </MapView>
           ) : (
             <View style={styles.mapFallback}>
-              <Text style={styles.mapFallbackTitle}>Mapa indisponível no momento</Text>
+              <Text style={styles.mapFallbackTitle}>Mapa indisponivel no momento</Text>
               <Text style={styles.mapFallbackText}>
-                Nenhuma coordenada válida foi recebida para montar a visualização com segurança.
+                Nenhuma coordenada valida foi recebida para montar a visualizacao com seguranca.
               </Text>
             </View>
           )}
         </View>
 
         <View style={styles.mapHeader}>
-          <Text style={styles.mapHeaderTitle}>Mapa dos centros próximos</Text>
+          <Text style={styles.mapHeaderTitle}>Mapa dos centros proximos</Text>
           <Text style={styles.mapHeaderText}>
-            {originLabel ?? 'Baseado na sua localização de busca atual'}
+            {originLabel ?? 'Baseado na sua localizacao de busca atual'}
           </Text>
         </View>
 
@@ -151,11 +190,21 @@ export function MapScreen({ route }: MapScreenProps) {
           <View style={styles.selectionCard}>
             <Text style={styles.selectionName}>Nenhum centro pronto para o mapa</Text>
             <Text style={styles.selectionAddress}>
-              Os detalhes continuam acessíveis na lista, mas esta tela não recebeu coordenadas
+              Os detalhes continuam acessiveis na lista, mas esta tela nao recebeu coordenadas
               suficientes para exibir marcadores.
             </Text>
           </View>
         )}
+
+        {!runtimeMapsApiKeyConfigured ? (
+          <View style={styles.mapNotice}>
+            <Text style={styles.mapNoticeTitle}>Chave do Google Maps nao detectada</Text>
+            <Text style={styles.mapNoticeText}>
+              Se esta for uma build antiga, gere e instale uma nova versao nativa apos atualizar o
+              app.config.ts e confirmar que o Maps SDK for Android esta ativo no Google Cloud.
+            </Text>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -229,6 +278,28 @@ const styles = StyleSheet.create({
   mapHeaderTitle: {
     color: theme.colors.primaryDark,
     fontSize: 17,
+    fontWeight: '800',
+  },
+  mapNotice: {
+    backgroundColor: 'rgba(255, 249, 242, 0.98)',
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    bottom: 164,
+    left: 16,
+    padding: 14,
+    position: 'absolute',
+    right: 16,
+  },
+  mapNoticeText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  mapNoticeTitle: {
+    color: theme.colors.primaryDark,
+    fontSize: 14,
     fontWeight: '800',
   },
   routeButton: {
