@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AdMobBanner } from '../components/AdMobBanner';
 import { CenterCard } from '../components/CenterCard';
@@ -26,7 +26,10 @@ import { openRouteInGoogleMaps } from '../utils/maps';
 
 type HomeScreenProps = StackScreenProps<RootStackParamList, 'Home'>;
 
+const FIXED_AD_FOOTER_BASE_HEIGHT = 96;
+
 export function HomeScreen({ navigation }: HomeScreenProps) {
+  const insets = useSafeAreaInsets();
   const [centers, setCenters] = useState<Center[]>([]);
   const [origin, setOrigin] = useState<Coordinates | null>(null);
   const [originLabel, setOriginLabel] = useState<string | null>(null);
@@ -52,23 +55,23 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       const nearbyCenters = await searchNearbyCenters(currentLocation);
 
       setOrigin(currentLocation);
-      setOriginLabel('Usando sua localização atual');
+      setOriginLabel('Usando sua localizacao atual');
       setCenters(nearbyCenters);
     } catch (loadError) {
       if (loadError instanceof LocationPermissionDeniedError) {
         setPermissionDenied(true);
-        setOriginLabel('Localização negada. Use a busca manual.');
+        setOriginLabel('Localizacao negada. Use a busca manual.');
 
         if (!centers.length) {
           setError(
-            'Sem permissão de localização, você ainda pode buscar por cidade ou bairro logo abaixo.',
+            'Sem permissao de localizacao, voce ainda pode buscar por cidade ou bairro logo abaixo.',
           );
         }
       } else {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Não foi possível buscar centros espíritas próximos.',
+            : 'Nao foi possivel buscar centros espiritas proximos.',
         );
       }
     } finally {
@@ -117,161 +120,165 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const shouldShowLoadingState = (loading || searchingManualArea) && !centers.length;
+  const footerSpacerHeight = FIXED_AD_FOOTER_BASE_HEIGHT + insets.bottom;
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <FlatList
-        contentContainerStyle={[
-          styles.listContent,
-          !centers.length ? styles.listContentEmpty : null,
-        ]}
-        data={centers}
-        keyboardShouldPersistTaps="handled"
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          !shouldShowLoadingState && !error ? (
-            <ErrorState
-              message="Ainda não encontramos centros nessa área. Tente atualizar sua localização ou fazer uma nova busca por cidade ou bairro."
-              onRetry={() => void loadNearbyUsingCurrentLocation()}
-              title="Nenhum centro encontrado por aqui"
-              tone="empty"
-            />
-          ) : null
-        }
-        ListHeaderComponent={
-          <View style={styles.headerContent}>
-            <View style={styles.hero}>
-              <View style={styles.heroOrbLarge} />
-              <View style={styles.heroOrbSmall} />
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>Busca acolhedora e simples</Text>
-              </View>
+      <View style={styles.screen}>
+        <FlatList
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: footerSpacerHeight + 24 },
+            !centers.length ? styles.listContentEmpty : null,
+          ]}
+          data={centers}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            !shouldShowLoadingState && !error ? (
+              <ErrorState
+                message="Ainda nao encontramos centros nessa area. Tente atualizar sua localizacao ou fazer uma nova busca por cidade ou bairro."
+                onRetry={() => void loadNearbyUsingCurrentLocation()}
+                title="Nenhum centro encontrado por aqui"
+                tone="empty"
+              />
+            ) : null
+          }
+          ListHeaderComponent={
+            <View style={styles.headerContent}>
+              <View style={styles.hero}>
+                <View style={styles.heroOrbLarge} />
+                <View style={styles.heroOrbSmall} />
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>Busca acolhedora e simples</Text>
+                </View>
 
-              <Text style={styles.title}>Centros Espiritas Proximos</Text>
-              <Text style={styles.subtitle}>
-                Descubra centros espíritas perto de você, veja horários quando disponíveis,
-                confira detalhes e abra a rota no Google Maps.
-              </Text>
+                <Text style={styles.title}>Centros Espiritas Proximos</Text>
+                <Text style={styles.subtitle}>
+                  Descubra centros espiritas perto de voce, veja horarios quando disponiveis,
+                  confira detalhes e abra a rota no Google Maps.
+                </Text>
 
-              <View style={styles.heroActions}>
-                <Pressable
-                  onPress={() => void loadNearbyUsingCurrentLocation(true)}
-                  style={[styles.heroButton, styles.primaryHeroButton]}
-                >
-                  <Text style={styles.primaryHeroButtonText}>
-                    {permissionDenied ? 'Permitir localização' : 'Atualizar localização'}
-                  </Text>
-                </Pressable>
-
-                {origin && centers.length ? (
+                <View style={styles.heroActions}>
                   <Pressable
-                    onPress={() =>
-                      navigation.navigate('Map', {
-                        centers,
-                        origin,
-                        originLabel,
-                      })
-                    }
-                    style={[styles.heroButton, styles.secondaryHeroButton]}
+                    onPress={() => void loadNearbyUsingCurrentLocation(true)}
+                    style={[styles.heroButton, styles.primaryHeroButton]}
                   >
-                    <Text style={styles.secondaryHeroButtonText}>Ver mapa</Text>
+                    <Text style={styles.primaryHeroButtonText}>
+                      {permissionDenied ? 'Permitir localizacao' : 'Atualizar localizacao'}
+                    </Text>
                   </Pressable>
+
+                  {origin && centers.length ? (
+                    <Pressable
+                      onPress={() =>
+                        navigation.navigate('Map', {
+                          centers,
+                          origin,
+                          originLabel,
+                        })
+                      }
+                      style={[styles.heroButton, styles.secondaryHeroButton]}
+                    >
+                      <Text style={styles.secondaryHeroButtonText}>Ver mapa</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+
+                {originLabel ? <Text style={styles.originLabel}>{originLabel}</Text> : null}
+                {refreshingLocation ? (
+                  <Text style={styles.refreshText}>Atualizando sua localizacao...</Text>
                 ) : null}
               </View>
 
-              {originLabel ? <Text style={styles.originLabel}>{originLabel}</Text> : null}
-              {refreshingLocation ? (
-                <Text style={styles.refreshText}>Atualizando sua localizacao...</Text>
+              <View style={styles.searchPanel}>
+                <Text style={styles.searchTitle}>Buscar manualmente por cidade ou bairro</Text>
+                <Text style={styles.searchText}>
+                  Use esta opcao quando preferir explorar outra regiao ou quando a permissao de
+                  localizacao estiver desativada.
+                </Text>
+
+                <TextInput
+                  autoCapitalize="words"
+                  onChangeText={setManualQuery}
+                  placeholder="Ex.: Centro, Cuiaba ou Barra do Garcas"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.input}
+                  value={manualQuery}
+                />
+
+                <Pressable
+                  onPress={() => void handleManualSearch()}
+                  style={[styles.heroButton, styles.primaryHeroButton]}
+                >
+                  <Text style={styles.primaryHeroButtonText}>
+                    {searchingManualArea ? 'Buscando...' : 'Buscar nessa area'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {shouldShowLoadingState ? <LoadingState /> : null}
+              {error ? (
+                <ErrorState
+                  message={error}
+                  onRetry={() => void loadNearbyUsingCurrentLocation()}
+                />
+              ) : null}
+
+              {!loading && centers.length ? (
+                <View style={styles.resultsCard}>
+                  <Text style={styles.resultsLabel}>
+                    {centers.length} centro(s) encontrado(s) por proximidade
+                  </Text>
+                  <Text style={styles.resultsSubtext}>
+                    Toque em um card para ver detalhes ou abrir a rota com facilidade.
+                  </Text>
+                </View>
               ) : null}
             </View>
+          }
+          renderItem={({ item }) => (
+            <CenterCard
+              center={item}
+              onPressDetails={() =>
+                navigation.navigate('Details', {
+                  center: item,
+                  origin,
+                })
+              }
+              onPressRoute={() => void handleOpenRoute(item)}
+            />
+          )}
+        />
 
-            <View style={styles.searchPanel}>
-              <Text style={styles.searchTitle}>Buscar manualmente por cidade ou bairro</Text>
-              <Text style={styles.searchText}>
-                Use esta opcao quando preferir explorar outra regiao ou quando a permissao de
-                localizacao estiver desativada.
-              </Text>
-
-              <TextInput
-                autoCapitalize="words"
-                onChangeText={setManualQuery}
-                placeholder="Ex.: Centro, Cuiaba ou Barra do Garcas"
-                placeholderTextColor="#9CA3AF"
-                style={styles.input}
-                value={manualQuery}
-              />
-
-              <Pressable
-                onPress={() => void handleManualSearch()}
-                style={[styles.heroButton, styles.primaryHeroButton]}
-              >
-                <Text style={styles.primaryHeroButtonText}>
-                  {searchingManualArea ? 'Buscando...' : 'Buscar nessa area'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {shouldShowLoadingState ? <LoadingState /> : null}
-            {error ? <ErrorState message={error} onRetry={() => void loadNearbyUsingCurrentLocation()} /> : null}
-
-            {!loading && centers.length ? (
-              <View style={styles.resultsCard}>
-                <Text style={styles.resultsLabel}>
-                  {centers.length} centro(s) encontrado(s) por proximidade
-                </Text>
-                <Text style={styles.resultsSubtext}>
-                  Toque em um card para ver detalhes ou abrir a rota com facilidade.
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        }
-        ListFooterComponent={
-          <View style={styles.footerBanner}>
-            <View style={styles.footerBannerCard}>
-              <Text style={styles.footerBannerLabel}>Publicidade</Text>
-              <AdMobBanner />
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <CenterCard
-            center={item}
-            onPressDetails={() =>
-              navigation.navigate('Details', {
-                center: item,
-                origin,
-              })
-            }
-            onPressRoute={() => void handleOpenRoute(item)}
-          />
-        )}
-      />
+        <View
+          style={[
+            styles.fixedAdFooter,
+            {
+              paddingBottom: Math.max(insets.bottom, 8),
+            },
+          ]}
+        >
+          <AdMobBanner />
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  footerBanner: {
-    paddingBottom: 12,
-    paddingTop: 4,
-  },
-  footerBannerCard: {
-    ...theme.shadows.soft,
-    backgroundColor: theme.colors.backgroundAlt,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
+  fixedAdFooter: {
+    alignItems: 'center',
+    backgroundColor: '#F8F5F0',
+    borderTopColor: '#E5DED2',
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
     paddingHorizontal: 12,
-    paddingTop: 10,
-  },
-  footerBannerLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    paddingBottom: 4,
-    textAlign: 'center',
+    paddingTop: 8,
+    position: 'absolute',
+    right: 0,
   },
   headerContent: {
     paddingBottom: 14,
@@ -345,7 +352,6 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
     padding: 16,
-    paddingBottom: 32,
   },
   listContentEmpty: {
     paddingBottom: 52,
@@ -391,6 +397,9 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     backgroundColor: theme.colors.background,
+    flex: 1,
+  },
+  screen: {
     flex: 1,
   },
   searchPanel: {
