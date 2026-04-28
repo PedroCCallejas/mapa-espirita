@@ -9,12 +9,12 @@ const admobIosAppId =
   process.env.ADMOB_IOS_APP_ID ?? 'ca-app-pub-3940256099942544~1458002511';
 
 const config: ExpoConfig = {
-  name: 'Centros Espiritas Proximos',
-  slug: 'centros-espiritas-proximos',
+  name: 'Mapa Espírita',
+  slug: 'Mapa Espírita',
   version: '1.0.0',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
-  scheme: 'centrosespiritasproximos',
+  scheme: 'MapaEspirita',
   jsEngine: 'hermes',
 
   plugins: [
@@ -49,20 +49,26 @@ const config: ExpoConfig = {
 
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.seuapp.centrosespiritasproximos',
+    bundleIdentifier: 'com.seuapp.mapaespirita',
+    config: {
+      googleMapsApiKey,
+    },
   },
 
   android: {
-    package: 'com.seuapp.centrosespiritasproximos',
+    package: 'com.seuapp.mapaespirita',
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+    config: {
+      googleMaps: {
+        apiKey: googleMapsApiKey,
+      },
+    },
   },
 
   extra: {
     admobAndroidAppId,
     admobIosAppId,
-    googleMapsApiKey,
 
-    
     eas: {
       projectId: 'a8c1cfe1-3998-4b31-8613-4c72ccd21bf8',
     },
