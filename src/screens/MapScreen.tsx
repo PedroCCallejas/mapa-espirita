@@ -1,5 +1,5 @@
 import type { StackScreenProps } from '@react-navigation/stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,8 +25,8 @@ function isValidCoordinate(coordinates: Coordinates | null | undefined): coordin
 function buildRegion(coordinates: Coordinates) {
   return {
     latitude: coordinates.latitude,
-    latitudeDelta: 0.08,
     longitude: coordinates.longitude,
+    latitudeDelta: 0.08,
     longitudeDelta: 0.08,
   };
 }
@@ -53,23 +53,41 @@ function SelectionCard({
 
 export function MapScreen({ route }: MapScreenProps) {
   const { centers, origin, originLabel } = route.params;
-  const validCenters = centers.filter((center) => isValidCoordinate(center.location));
+
+  const validCenters = useMemo(
+    () => centers.filter((center) => isValidCoordinate(center.location)),
+    [centers],
+  );
+
   const hasValidOrigin = isValidCoordinate(origin);
   const runtimeMapsApiKeyConfigured = Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
   const invalidCenterCount = centers.length - validCenters.length;
-  const [selectedCenter, setSelectedCenter] = useState<Center | null>(validCenters[0] ?? null);
+
   const mapRegion = hasValidOrigin
     ? buildRegion(origin)
     : validCenters[0]
       ? buildRegion(validCenters[0].location)
       : null;
 
+  const [selectedCenter, setSelectedCenter] = useState<Center | null>(validCenters[0] ?? null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapLoadTimeout, setMapLoadTimeout] = useState(false);
+
+  useEffect(() => {
+    console.info('[MapScreen] Tela renderizada.', {
+      hasValidOrigin,
+      mapRegion,
+      runtimeMapsApiKeyConfigured,
+      validCentersCount: validCenters.length,
+    });
+  }, [hasValidOrigin, mapRegion, runtimeMapsApiKeyConfigured, validCenters.length]);
+
   useEffect(() => {
     console.info('[MapScreen] Diagnostico inicial do mapa:', {
       centersRecebidos: centers.map((center) => ({
         id: center.id,
-        latitude: center.location.latitude,
-        longitude: center.location.longitude,
+        latitude: center.location?.latitude,
+        longitude: center.location?.longitude,
         name: center.name,
       })),
       chaveGoogleMapsConfiguradaEmRuntime: runtimeMapsApiKeyConfigured,
@@ -120,6 +138,29 @@ export function MapScreen({ route }: MapScreenProps) {
     setSelectedCenter(validCenters[0] ?? null);
   }, [selectedCenter, validCenters]);
 
+  useEffect(() => {
+    if (!mapRegion || mapReady) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setMapLoadTimeout(true);
+      console.warn(
+        '[MapScreen] MapView ainda nao disparou onMapReady. Se o mapa estiver branco, verifique build nativa, AndroidManifest e Google Maps API Key.',
+      );
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [mapReady, mapRegion]);
+
+  const handleOpenRoute = () => {
+    if (!selectedCenter) {
+      return;
+    }
+
+    void openRouteInGoogleMaps(origin, selectedCenter.location, selectedCenter.address);
+  };
+
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <View style={styles.container}>
@@ -127,7 +168,13 @@ export function MapScreen({ route }: MapScreenProps) {
           {mapRegion ? (
             <MapView
               initialRegion={mapRegion}
+              onMapLoaded={() => {
+                console.info('[MapScreen] MapView carregado via onMapLoaded.');
+              }}
               onMapReady={() => {
+                setMapReady(true);
+                setMapLoadTimeout(false);
+
                 console.info('[MapScreen] MapView pronto para renderizar.', {
                   initialRegion: mapRegion,
                   provider: Platform.OS === 'android' ? 'google' : 'default',
@@ -135,7 +182,7 @@ export function MapScreen({ route }: MapScreenProps) {
               }}
               provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
               showsUserLocation={hasValidOrigin}
-              style={styles.map}
+              style={StyleSheet.absoluteFillObject}
             >
               {hasValidOrigin ? (
                 <Marker
@@ -172,6 +219,12 @@ export function MapScreen({ route }: MapScreenProps) {
           )}
         </View>
 
+        <View style={styles.diagnosticBadge}>
+          <Text style={styles.diagnosticText}>
+            MapScreen renderizada • {validCenters.length} marcador(es)
+          </Text>
+        </View>
+
         <View style={styles.mapHeader}>
           <Text style={styles.mapHeaderTitle}>Mapa dos centros proximos</Text>
           <Text style={styles.mapHeaderText}>
@@ -180,12 +233,7 @@ export function MapScreen({ route }: MapScreenProps) {
         </View>
 
         {selectedCenter ? (
-          <SelectionCard
-            center={selectedCenter}
-            onOpenRoute={() =>
-              void openRouteInGoogleMaps(origin, selectedCenter.location, selectedCenter.address)
-            }
-          />
+          <SelectionCard center={selectedCenter} onOpenRoute={handleOpenRoute} />
         ) : (
           <View style={styles.selectionCard}>
             <Text style={styles.selectionName}>Nenhum centro pronto para o mapa</Text>
@@ -202,6 +250,16 @@ export function MapScreen({ route }: MapScreenProps) {
             <Text style={styles.mapNoticeText}>
               Se esta for uma build antiga, gere e instale uma nova versao nativa apos atualizar o
               app.config.ts e confirmar que o Maps SDK for Android esta ativo no Google Cloud.
+            </Text>
+          </View>
+        ) : null}
+
+        {mapLoadTimeout && runtimeMapsApiKeyConfigured ? (
+          <View style={styles.mapNotice}>
+            <Text style={styles.mapNoticeTitle}>Mapa demorando para carregar</Text>
+            <Text style={styles.mapNoticeText}>
+              Se a tela continuar em branco, gere uma nova build nativa e reinstale o app. A chave
+              do Maps precisa estar dentro do AndroidManifest.
             </Text>
           </View>
         ) : null}
@@ -228,11 +286,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  map: {
-    flex: 1,
+  diagnosticBadge: {
+    backgroundColor: 'rgba(255, 253, 248, 0.96)',
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    left: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    right: 16,
+    top: 92,
+  },
+  diagnosticText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   mapContainer: {
     flex: 1,
+    overflow: 'hidden',
   },
   mapFallback: {
     alignItems: 'center',
@@ -305,15 +379,12 @@ const styles = StyleSheet.create({
   routeButton: {
     alignItems: 'center',
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.sm,
-    justifyContent: 'center',
+    borderRadius: theme.radius.md,
     marginTop: 12,
-    minHeight: 46,
-    paddingHorizontal: 14,
     paddingVertical: 12,
   },
   routeButtonText: {
-    color: theme.colors.white,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -323,9 +394,9 @@ const styles = StyleSheet.create({
   },
   selectionAddress: {
     color: theme.colors.textMuted,
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 19,
-    marginTop: 8,
+    marginTop: 6,
   },
   selectionCard: {
     backgroundColor: 'rgba(255, 253, 248, 0.98)',
@@ -337,12 +408,20 @@ const styles = StyleSheet.create({
     padding: 16,
     position: 'absolute',
     right: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 6,
   },
   selectionDistance: {
-    color: theme.colors.accent,
+    color: theme.colors.primary,
     fontSize: 14,
     fontWeight: '800',
-    marginTop: 6,
+    marginTop: 4,
   },
   selectionName: {
     color: theme.colors.text,

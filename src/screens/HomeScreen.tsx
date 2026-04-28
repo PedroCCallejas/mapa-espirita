@@ -55,23 +55,23 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       const nearbyCenters = await searchNearbyCenters(currentLocation);
 
       setOrigin(currentLocation);
-      setOriginLabel('Usando sua localizacao atual');
+      setOriginLabel('Usando sua localização atual');
       setCenters(nearbyCenters);
     } catch (loadError) {
       if (loadError instanceof LocationPermissionDeniedError) {
         setPermissionDenied(true);
-        setOriginLabel('Localizacao negada. Use a busca manual.');
+        setOriginLabel('Localização negada. Use a busca manual.');
 
         if (!centers.length) {
           setError(
-            'Sem permissao de localizacao, voce ainda pode buscar por cidade ou bairro logo abaixo.',
+            'Sem permissão de localização, você ainda pode buscar por cidade ou bairro logo abaixo.',
           );
         }
       } else {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Nao foi possivel buscar centros espiritas proximos.',
+            : 'Não foi possível buscar centros espíritas próximos.',
         );
       }
     } finally {
@@ -107,7 +107,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       setError(
         searchError instanceof Error
           ? searchError.message
-          : 'Nao foi possivel buscar essa cidade ou bairro.',
+          : 'Não foi possível buscar essa cidade ou bairro.',
       );
     } finally {
       setSearchingManualArea(false);
@@ -138,7 +138,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           ListEmptyComponent={
             !shouldShowLoadingState && !error ? (
               <ErrorState
-                message="Ainda nao encontramos centros nessa area. Tente atualizar sua localizacao ou fazer uma nova busca por cidade ou bairro."
+                message="Ainda não encontramos centros nessa area. Tente atualizar sua localização ou fazer uma nova busca por cidade ou bairro."
                 onRetry={() => void loadNearbyUsingCurrentLocation()}
                 title="Nenhum centro encontrado por aqui"
                 tone="empty"
@@ -154,9 +154,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.heroBadgeText}>Busca acolhedora e simples</Text>
                 </View>
 
-                <Text style={styles.title}>Centros Espiritas Proximos</Text>
+                <Text style={styles.title}>Centros Espíritas Próximos</Text>
                 <Text style={styles.subtitle}>
-                  Descubra centros espiritas perto de voce, veja horarios quando disponiveis,
+                  Descubra centros espíritas perto de você, veja horários quando disponíveis,
                   confira detalhes e abra a rota no Google Maps.
                 </Text>
 
@@ -188,15 +188,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
                 {originLabel ? <Text style={styles.originLabel}>{originLabel}</Text> : null}
                 {refreshingLocation ? (
-                  <Text style={styles.refreshText}>Atualizando sua localizacao...</Text>
+                  <Text style={styles.refreshText}>Atualizando sua localização...</Text>
                 ) : null}
               </View>
 
               <View style={styles.searchPanel}>
                 <Text style={styles.searchTitle}>Buscar manualmente por cidade ou bairro</Text>
                 <Text style={styles.searchText}>
-                  Use esta opcao quando preferir explorar outra regiao ou quando a permissao de
-                  localizacao estiver desativada.
+                  Use esta opção quando preferir explorar outra região ou quando a permissão de
+                  localização estiver desativada.
                 </Text>
 
                 <TextInput

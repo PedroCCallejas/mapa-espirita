@@ -48,22 +48,22 @@ const config: ExpoConfig = {
   ],
 
   ios: {
-    supportsTablet: true,
-    bundleIdentifier: 'com.seuapp.mapaespirita',
-    config: {
-      googleMapsApiKey,
-    },
+  supportsTablet: true,
+  bundleIdentifier: 'com.seuapp.mapaespirita',
+  config: {
+    googleMapsApiKey,
   },
+},
 
-  android: {
-    package: 'com.seuapp.mapaespirita',
-    permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
-    config: {
-      googleMaps: {
-        apiKey: googleMapsApiKey,
-      },
+ android: {
+  package: 'com.seuapp.mapaespirita',
+  permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+  config: {
+    googleMaps: {
+      apiKey: googleMapsApiKey,
     },
   },
+},
 
   extra: {
     admobAndroidAppId,

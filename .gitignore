@@ -12,4 +12,6 @@ coverage/
 .env.local
 .env.*.local
 .easignore
+android/
+ios/
 "@ | Set-Content .gitignore
