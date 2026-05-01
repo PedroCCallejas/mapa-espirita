@@ -6,9 +6,4 @@ export type RootStackParamList = {
     origin: Coordinates | null;
   };
   Home: undefined;
-  Map: {
-    centers: Center[];
-    origin: Coordinates;
-    originLabel?: string | null;
-  };
 };

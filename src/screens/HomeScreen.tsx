@@ -169,21 +169,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                       {permissionDenied ? 'Permitir localizacao' : 'Atualizar localizacao'}
                     </Text>
                   </Pressable>
-
-                  {origin && centers.length ? (
-                    <Pressable
-                      onPress={() =>
-                        navigation.navigate('Map', {
-                          centers,
-                          origin,
-                          originLabel,
-                        })
-                      }
-                      style={[styles.heroButton, styles.secondaryHeroButton]}
-                    >
-                      <Text style={styles.secondaryHeroButtonText}>Ver mapa</Text>
-                    </Pressable>
-                  ) : null}
                 </View>
 
                 {originLabel ? <Text style={styles.originLabel}>{originLabel}</Text> : null}
@@ -419,16 +404,6 @@ const styles = StyleSheet.create({
   searchTitle: {
     color: theme.colors.primaryDark,
     fontSize: 17,
-    fontWeight: '800',
-  },
-  secondaryHeroButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-    borderColor: 'rgba(255, 255, 255, 0.24)',
-    borderWidth: 1,
-  },
-  secondaryHeroButtonText: {
-    color: theme.colors.white,
-    fontSize: 14,
     fontWeight: '800',
   },
   subtitle: {

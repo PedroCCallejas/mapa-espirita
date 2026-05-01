@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { theme } from '../constants/theme';
 import { DetailsScreen } from '../screens/DetailsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { MapScreen } from '../screens/MapScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -69,11 +68,6 @@ export default function AppNavigator() {
           component={DetailsScreen}
           name="Details"
           options={{ title: 'Detalhes do centro' }}
-        />
-        <Stack.Screen
-          component={MapScreen}
-          name="Map"
-          options={{ title: 'Mapa dos centros' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
