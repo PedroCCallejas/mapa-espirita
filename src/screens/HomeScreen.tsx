@@ -1,7 +1,10 @@
 import type { StackScreenProps } from '@react-navigation/stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +33,7 @@ const FIXED_AD_FOOTER_BASE_HEIGHT = 96;
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<Center> | null>(null);
   const [centers, setCenters] = useState<Center[]>([]);
   const [origin, setOrigin] = useState<Coordinates | null>(null);
   const [originLabel, setOriginLabel] = useState<string | null>(null);
@@ -37,8 +41,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [refreshingLocation, setRefreshingLocation] = useState(false);
   const [searchingManualArea, setSearchingManualArea] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [manualQuery, setManualQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [searchPanelY, setSearchPanelY] = useState(0);
 
   const loadNearbyUsingCurrentLocation = async (showRefreshIndicator = false) => {
     try {
@@ -85,6 +91,32 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const scrollToSearchPanel = () => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({
+        animated: true,
+        offset: Math.max(searchPanelY - 16, 0),
+      });
+    });
+  };
+
   const handleManualSearch = async () => {
     const trimmedQuery = manualQuery.trim();
 
@@ -94,6 +126,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
 
     try {
+      Keyboard.dismiss();
       setSearchingManualArea(true);
       setError(null);
 
@@ -120,18 +153,24 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const shouldShowLoadingState = (loading || searchingManualArea) && !centers.length;
-  const footerSpacerHeight = FIXED_AD_FOOTER_BASE_HEIGHT + insets.bottom;
+  const footerSpacerHeight = isKeyboardVisible ? 0 : FIXED_AD_FOOTER_BASE_HEIGHT + insets.bottom;
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <View style={styles.screen}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.screen}
+      >
         <FlatList
+          ref={listRef}
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: footerSpacerHeight + 24 },
             !centers.length ? styles.listContentEmpty : null,
           ]}
           data={centers}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
@@ -177,7 +216,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 ) : null}
               </View>
 
-              <View style={styles.searchPanel}>
+              <View
+                onLayout={({ nativeEvent }) => {
+                  setSearchPanelY(nativeEvent.layout.y);
+                }}
+                style={styles.searchPanel}
+              >
                 <Text style={styles.searchTitle}>Buscar manualmente por cidade ou bairro</Text>
                 <Text style={styles.searchText}>
                   Use esta opção quando preferir explorar outra região ou quando a permissão de
@@ -187,8 +231,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <TextInput
                   autoCapitalize="words"
                   onChangeText={setManualQuery}
+                  onFocus={scrollToSearchPanel}
+                  onSubmitEditing={() => void handleManualSearch()}
                   placeholder="Ex.: Centro, Cuiaba ou Barra do Garcas"
                   placeholderTextColor="#9CA3AF"
+                  returnKeyType="search"
                   style={styles.input}
                   value={manualQuery}
                 />
@@ -237,17 +284,19 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           )}
         />
 
-        <View
-          style={[
-            styles.fixedAdFooter,
-            {
-              paddingBottom: Math.max(insets.bottom, 8),
-            },
-          ]}
-        >
-          <AdMobBanner />
-        </View>
-      </View>
+        {!isKeyboardVisible ? (
+          <View
+            style={[
+              styles.fixedAdFooter,
+              {
+                paddingBottom: Math.max(insets.bottom, 8),
+              },
+            ]}
+          >
+            <AdMobBanner />
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
