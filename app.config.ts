@@ -13,9 +13,9 @@ const admobIosAppId =
 
 const config: ExpoConfig = {
   name: 'Mapa Espírita',
-  slug: 'mapa-espirita',
+  slug: 'centros-espiritas-proximos',
 
-  version: '1.0.0',
+  version: '1.0.1',
 
   orientation: 'portrait',
   userInterfaceStyle: 'light',
@@ -77,6 +77,7 @@ const config: ExpoConfig = {
 
   android: {
     package: 'com.pedroccallejas.mapaespirita',
+     versionCode: 2,
 
     permissions: [
       'ACCESS_COARSE_LOCATION',
