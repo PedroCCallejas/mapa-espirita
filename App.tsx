@@ -10,7 +10,7 @@ import { enableScreens } from 'react-native-screens';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initializeAdMob } from './src/services/adMob';
 
-enableScreens(false);
+enableScreens();
 
 export default function App() {
   useEffect(() => {

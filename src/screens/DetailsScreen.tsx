@@ -15,6 +15,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoadingState } from '../components/LoadingState';
 import { theme } from '../constants/theme';
 import type { RootStackParamList } from '../navigation/types';
+import { loadFavoriteCenters, toggleFavoriteCenter } from '../services/favorites';
 import { getCenterDetails } from '../services/googlePlaces';
 import type { Center } from '../types/center';
 import { formatDistanceKm } from '../utils/distance';
@@ -38,12 +39,26 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 function StatusLabel({ center }: { center: Center }) {
   const labelMap = {
-    OPEN: 'Aberto agora',
     CLOSED: 'Fechado',
-    UNKNOWN: 'Sem horário',
+    OPEN: 'Aberto agora',
+    UNKNOWN: 'Horario indisponivel',
   };
 
   return <Text style={styles.statusLabel}>{labelMap[center.status]}</Text>;
+}
+
+function formatBusinessStatus(businessStatus?: string | null) {
+  if (!businessStatus) {
+    return undefined;
+  }
+
+  const labelMap: Record<string, string> = {
+    CLOSED_PERMANENTLY: 'Fechado permanentemente',
+    CLOSED_TEMPORARILY: 'Fechado temporariamente',
+    OPERATIONAL: 'Em operacao',
+  };
+
+  return labelMap[businessStatus] ?? businessStatus;
 }
 
 export function DetailsScreen({ route }: DetailsScreenProps) {
@@ -52,6 +67,8 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
   const [center, setCenter] = useState<Center>(initialCenter);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [updatingFavorite, setUpdatingFavorite] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +108,32 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
     };
   }, [initialCenter, origin]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadFavoriteStatus = async () => {
+      try {
+        const favoriteCenters = await loadFavoriteCenters();
+
+        if (active) {
+          setIsFavorite(
+            favoriteCenters.some((favoriteCenter) => favoriteCenter.id === center.id),
+          );
+        }
+      } catch {
+        if (active) {
+          setError((currentError) => currentError ?? 'Nao foi possivel carregar seus favoritos.');
+        }
+      }
+    };
+
+    void loadFavoriteStatus();
+
+    return () => {
+      active = false;
+    };
+  }, [center.id]);
+
   const handleOpenWebsite = async () => {
     if (!center.website) {
       return;
@@ -103,6 +146,18 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
     await openRouteInGoogleMaps(origin, center.location, center.address);
   };
 
+  const handleToggleFavorite = async () => {
+    try {
+      setUpdatingFavorite(true);
+      const result = await toggleFavoriteCenter(center);
+      setIsFavorite(result.isFavorite);
+    } catch {
+      setError('Nao foi possivel atualizar seus favoritos locais. Tente novamente.');
+    } finally {
+      setUpdatingFavorite(false);
+    }
+  };
+
   const photoCredit = center.photo?.authorAttributions?.[0]?.displayName;
   const translatedWeekdayDescriptions = translateWeekdayDescriptions(center.weekdayDescriptions);
 
@@ -113,7 +168,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
           <Image source={{ uri: center.photo.url }} style={styles.heroImage} />
         ) : (
           <View style={[styles.heroImage, styles.heroFallback]}>
-            <Text style={styles.heroFallbackText}>Sem foto disponível</Text>
+            <Text style={styles.heroFallbackText}>Sem foto disponivel</Text>
           </View>
         )}
 
@@ -128,7 +183,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
 
           {typeof center.rating === 'number' ? (
             <Text style={styles.rating}>
-              Avaliação: {center.rating.toFixed(1)}
+              Avaliacao: {center.rating.toFixed(1)}
               {center.userRatingCount ? ` (${center.userRatingCount})` : ''}
             </Text>
           ) : null}
@@ -137,18 +192,18 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
         </View>
 
         <View style={styles.panel}>
-          <Text style={styles.sectionTitle}>Informações</Text>
+          <Text style={styles.sectionTitle}>Informacoes</Text>
           <InfoRow label="Telefone" value={center.phone} />
           <InfoRow label="Site" value={center.website} />
-          <InfoRow label="Endereço" value={center.address} />
+          <InfoRow label="Endereco" value={center.address} />
           <InfoRow
             label="Status do estabelecimento"
-            value={center.businessStatus ?? undefined}
+            value={formatBusinessStatus(center.businessStatus)}
           />
         </View>
 
         <View style={styles.panel}>
-          <Text style={styles.sectionTitle}>Horários</Text>
+          <Text style={styles.sectionTitle}>Horarios</Text>
           {translatedWeekdayDescriptions.length ? (
             translatedWeekdayDescriptions.map((item) => (
               <Text key={item} style={styles.hoursLine}>
@@ -156,13 +211,32 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
               </Text>
             ))
           ) : (
-            <Text style={styles.emptyText}>Nenhum horário informado pelo Google.</Text>
+            <Text style={styles.emptyText}>Nenhum horario informado pelo Google.</Text>
           )}
         </View>
 
         <View style={styles.actions}>
           <Pressable onPress={handleOpenRoute} style={[styles.button, styles.primaryButton]}>
             <Text style={styles.primaryButtonText}>Abrir rota no Google Maps</Text>
+          </Pressable>
+
+          <Pressable
+            disabled={updatingFavorite}
+            onPress={() => void handleToggleFavorite()}
+            style={[
+              styles.button,
+              isFavorite ? styles.favoriteButtonActive : styles.favoriteButton,
+              updatingFavorite ? styles.buttonDisabled : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.favoriteButtonText,
+                isFavorite ? styles.favoriteButtonTextActive : null,
+              ]}
+            >
+              {isFavorite ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
+            </Text>
           </Pressable>
 
           {center.website ? (
@@ -177,7 +251,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
 
         {loading ? (
           <LoadingState
-            message="Atualizando detalhes e horários..."
+            message="Atualizando detalhes e horarios..."
             showSkeletons={false}
           />
         ) : null}
@@ -210,6 +284,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   content: {
     padding: 16,
     paddingBottom: 28,
@@ -226,6 +303,24 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.textMuted,
     fontSize: 14,
+  },
+  favoriteButton: {
+    backgroundColor: theme.colors.backgroundAlt,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+  },
+  favoriteButtonActive: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary,
+    borderWidth: 1,
+  },
+  favoriteButtonText: {
+    color: theme.colors.primaryDark,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  favoriteButtonTextActive: {
+    color: theme.colors.primaryDark,
   },
   heroFallback: {
     alignItems: 'center',
@@ -316,6 +411,7 @@ const styles = StyleSheet.create({
   titleRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     justifyContent: 'space-between',
   },

@@ -7,25 +7,28 @@ import { getTodayHours } from '../utils/hours';
 
 type CenterCardProps = {
   center: Center;
+  favoriteDisabled?: boolean;
+  isFavorite?: boolean;
   onPressDetails: () => void;
   onPressRoute: () => void;
+  onToggleFavorite?: () => void;
 };
 
 const statusAppearance = {
-  OPEN: {
-    backgroundColor: theme.colors.successSoft,
-    color: theme.colors.success,
-    label: 'Aberto agora',
-  },
   CLOSED: {
     backgroundColor: theme.colors.dangerSoft,
     color: theme.colors.danger,
     label: 'Fechado',
   },
+  OPEN: {
+    backgroundColor: theme.colors.successSoft,
+    color: theme.colors.success,
+    label: 'Aberto agora',
+  },
   UNKNOWN: {
     backgroundColor: theme.colors.warningSoft,
     color: theme.colors.warning,
-    label: 'Sem horário',
+    label: 'Horario indisponivel',
   },
 };
 
@@ -45,8 +48,11 @@ function getPhotoCredit(center: Center) {
 
 export function CenterCard({
   center,
+  favoriteDisabled = false,
+  isFavorite = false,
   onPressDetails,
   onPressRoute,
+  onToggleFavorite,
 }: CenterCardProps) {
   const status = statusAppearance[center.status];
   const todayHours = getTodayHours(center.weekdayDescriptions);
@@ -88,6 +94,30 @@ export function CenterCard({
 
         {photoCredit ? <Text style={styles.credit}>{photoCredit}</Text> : null}
 
+        {onToggleFavorite ? (
+          <Pressable
+            accessibilityLabel={
+              isFavorite ? 'Remover centro dos favoritos' : 'Salvar centro nos favoritos'
+            }
+            disabled={favoriteDisabled}
+            onPress={onToggleFavorite}
+            style={[
+              styles.favoriteButton,
+              isFavorite ? styles.favoriteButtonActive : styles.favoriteButtonInactive,
+              favoriteDisabled ? styles.buttonDisabled : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.favoriteButtonText,
+                isFavorite ? styles.favoriteButtonTextActive : null,
+              ]}
+            >
+              {isFavorite ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.actionsRow}>
           <Pressable onPress={onPressDetails} style={[styles.button, styles.secondaryButton]}>
             <Text style={styles.secondaryButtonText}>Ver detalhes</Text>
@@ -103,6 +133,12 @@ export function CenterCard({
 }
 
 const styles = StyleSheet.create({
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 6,
+  },
   address: {
     color: theme.colors.textMuted,
     fontSize: 14,
@@ -118,20 +154,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
-  },
   button: {
     ...theme.shadows.soft,
     alignItems: 'center',
     borderRadius: theme.radius.sm,
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     minHeight: 46,
+    minWidth: 132,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   card: {
     ...theme.shadows.card,
@@ -160,6 +195,30 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  favoriteButton: {
+    alignItems: 'center',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  favoriteButtonActive: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary,
+  },
+  favoriteButtonInactive: {
+    backgroundColor: theme.colors.backgroundAlt,
+    borderColor: theme.colors.border,
+  },
+  favoriteButtonText: {
+    color: theme.colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  favoriteButtonTextActive: {
+    color: theme.colors.primaryDark,
   },
   hours: {
     color: theme.colors.text,

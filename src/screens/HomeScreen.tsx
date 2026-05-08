@@ -19,6 +19,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoadingState } from '../components/LoadingState';
 import { theme } from '../constants/theme';
 import type { RootStackParamList } from '../navigation/types';
+import { toggleFavoriteCenter, loadFavoriteCenters } from '../services/favorites';
 import { geocodeAddressQuery, searchNearbyCenters } from '../services/googlePlaces';
 import {
   LocationPermissionDeniedError,
@@ -28,6 +29,7 @@ import type { Center, Coordinates } from '../types/center';
 import { openRouteInGoogleMaps } from '../utils/maps';
 
 type HomeScreenProps = StackScreenProps<RootStackParamList, 'Home'>;
+type LastSearch = { type: 'location' } | { query: string; type: 'manual' };
 
 const FIXED_AD_FOOTER_BASE_HEIGHT = 96;
 
@@ -35,9 +37,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<Center> | null>(null);
   const [centers, setCenters] = useState<Center[]>([]);
+  const [favoriteCenters, setFavoriteCenters] = useState<Center[]>([]);
   const [origin, setOrigin] = useState<Coordinates | null>(null);
   const [originLabel, setOriginLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
   const [refreshingLocation, setRefreshingLocation] = useState(false);
   const [searchingManualArea, setSearchingManualArea] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -45,11 +49,30 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [manualQuery, setManualQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [searchPanelY, setSearchPanelY] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(
+    FIXED_AD_FOOTER_BASE_HEIGHT + insets.bottom,
+  );
+  const [lastSearch, setLastSearch] = useState<LastSearch>({ type: 'location' });
+  const [updatingFavoriteId, setUpdatingFavoriteId] = useState<string | null>(null);
+
+  const isBusy = loading || refreshingLocation || searchingManualArea;
+
+  const hydrateFavorites = async () => {
+    try {
+      const storedFavoriteCenters = await loadFavoriteCenters();
+      setFavoriteCenters(storedFavoriteCenters);
+    } catch {
+      setError((currentError) => currentError ?? 'Nao foi possivel carregar seus favoritos.');
+    } finally {
+      setLoadingFavorites(false);
+    }
+  };
 
   const loadNearbyUsingCurrentLocation = async (showRefreshIndicator = false) => {
     try {
       setError(null);
       setPermissionDenied(false);
+      setLastSearch({ type: 'location' });
 
       if (showRefreshIndicator) {
         setRefreshingLocation(true);
@@ -61,23 +84,20 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       const nearbyCenters = await searchNearbyCenters(currentLocation);
 
       setOrigin(currentLocation);
-      setOriginLabel('Usando sua localização atual');
+      setOriginLabel('Usando sua localizacao atual');
       setCenters(nearbyCenters);
     } catch (loadError) {
       if (loadError instanceof LocationPermissionDeniedError) {
         setPermissionDenied(true);
-        setOriginLabel('Localização negada. Use a busca manual.');
-
-        if (!centers.length) {
-          setError(
-            'Sem permissão de localização, você ainda pode buscar por cidade ou bairro logo abaixo.',
-          );
-        }
+        setOriginLabel('Localizacao negada. Use a busca manual.');
+        setError(
+          'Sem permissao de localizacao. Voce ainda pode buscar por cidade ou bairro logo abaixo.',
+        );
       } else {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : 'Não foi possível buscar centros espíritas próximos.',
+            : 'Nao foi possivel buscar centros espiritas proximos agora.',
         );
       }
     } finally {
@@ -90,6 +110,17 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     void loadNearbyUsingCurrentLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    void hydrateFavorites();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      void hydrateFavorites();
+    });
+
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -117,8 +148,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     });
   };
 
-  const handleManualSearch = async () => {
-    const trimmedQuery = manualQuery.trim();
+  const handleManualSearch = async (queryOverride?: string) => {
+    const trimmedQuery = (queryOverride ?? manualQuery).trim();
 
     if (trimmedQuery.length < 2) {
       setError('Digite pelo menos uma cidade ou bairro para buscar manualmente.');
@@ -129,6 +160,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       Keyboard.dismiss();
       setSearchingManualArea(true);
       setError(null);
+      setLastSearch({
+        query: trimmedQuery,
+        type: 'manual',
+      });
+
+      if (queryOverride) {
+        setManualQuery(trimmedQuery);
+      }
 
       const geocoded = await geocodeAddressQuery(trimmedQuery);
       const nearbyCenters = await searchNearbyCenters(geocoded.coordinates, geocoded.label);
@@ -137,10 +176,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       setOriginLabel(`Busca manual em ${geocoded.label}`);
       setCenters(nearbyCenters);
     } catch (searchError) {
+      const defaultMessage =
+        'Nao foi possivel buscar essa cidade ou bairro. Tente informar uma cidade com estado ou uma regiao mais ampla.';
+
       setError(
-        searchError instanceof Error
+        searchError instanceof Error && searchError.message
           ? searchError.message
-          : 'Não foi possível buscar essa cidade ou bairro.',
+          : defaultMessage,
       );
     } finally {
       setSearchingManualArea(false);
@@ -148,12 +190,58 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  const handleRetryLastSearch = () => {
+    if (lastSearch.type === 'manual') {
+      void handleManualSearch(lastSearch.query);
+      return;
+    }
+
+    void loadNearbyUsingCurrentLocation(true);
+  };
+
   const handleOpenRoute = async (center: Center) => {
     await openRouteInGoogleMaps(origin, center.location, center.address);
   };
 
+  const handleToggleFavorite = async (center: Center) => {
+    try {
+      setUpdatingFavoriteId(center.id);
+      const result = await toggleFavoriteCenter(center);
+      setFavoriteCenters(result.favoriteCenters);
+    } catch {
+      setError('Nao foi possivel atualizar seus favoritos locais. Tente novamente.');
+    } finally {
+      setUpdatingFavoriteId(null);
+    }
+  };
+
   const shouldShowLoadingState = (loading || searchingManualArea) && !centers.length;
-  const footerSpacerHeight = isKeyboardVisible ? 0 : FIXED_AD_FOOTER_BASE_HEIGHT + insets.bottom;
+  const footerSpacerHeight = isKeyboardVisible ? 0 : footerHeight;
+  const favoriteIds = new Set(
+    favoriteCenters.map((favoriteCenter) => favoriteCenter.id),
+  );
+  const emptyState =
+    lastSearch.type === 'manual'
+      ? {
+          actionLabel: 'Buscar novamente',
+          message: `Nao encontramos centros para "${lastSearch.query}". Tente outra cidade, bairro ou uma regiao maior.`,
+          title: 'Nenhum centro encontrado nessa busca',
+        }
+      : {
+          actionLabel: 'Atualizar localizacao',
+          message:
+            'Ainda nao encontramos centros por perto. Tente atualizar sua localizacao ou fazer uma busca manual por cidade ou bairro.',
+          title: 'Nenhum centro encontrado por aqui',
+        };
+  const errorRetryLabel =
+    lastSearch.type === 'manual' ? 'Tentar essa busca novamente' : 'Tentar novamente';
+  const locationButtonLabel =
+    refreshingLocation || (loading && !centers.length && lastSearch.type === 'location')
+      ? 'Buscando por perto...'
+      : permissionDenied
+        ? 'Tentar localizacao novamente'
+        : 'Atualizar localizacao';
+  const manualButtonLabel = searchingManualArea ? 'Buscando nessa area...' : 'Buscar nessa area';
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -177,9 +265,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           ListEmptyComponent={
             !shouldShowLoadingState && !error ? (
               <ErrorState
-                message="Ainda não encontramos centros nessa area. Tente atualizar sua localização ou fazer uma nova busca por cidade ou bairro."
-                onRetry={() => void loadNearbyUsingCurrentLocation()}
-                title="Nenhum centro encontrado por aqui"
+                actionLabel={emptyState.actionLabel}
+                message={emptyState.message}
+                onRetry={handleRetryLastSearch}
+                title={emptyState.title}
                 tone="empty"
               />
             ) : null
@@ -193,26 +282,29 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.heroBadgeText}>Busca acolhedora e simples</Text>
                 </View>
 
-                <Text style={styles.title}>Centros Espíritas Próximos</Text>
+                <Text style={styles.title}>Centros Espiritas Proximos</Text>
                 <Text style={styles.subtitle}>
-                  Descubra centros espíritas perto de você, veja horários quando disponíveis,
-                  confira detalhes e abra a rota no Google Maps.
+                  Descubra centros espiritas perto de voce, veja horarios quando
+                  disponiveis, confira detalhes e abra a rota no Google Maps.
                 </Text>
 
                 <View style={styles.heroActions}>
                   <Pressable
+                    disabled={isBusy}
                     onPress={() => void loadNearbyUsingCurrentLocation(true)}
-                    style={[styles.heroButton, styles.primaryHeroButton]}
+                    style={[
+                      styles.heroButton,
+                      styles.primaryHeroButton,
+                      isBusy ? styles.disabledButton : null,
+                    ]}
                   >
-                    <Text style={styles.primaryHeroButtonText}>
-                      {permissionDenied ? 'Permitir localizacao' : 'Atualizar localizacao'}
-                    </Text>
+                    <Text style={styles.primaryHeroButtonText}>{locationButtonLabel}</Text>
                   </Pressable>
                 </View>
 
                 {originLabel ? <Text style={styles.originLabel}>{originLabel}</Text> : null}
                 {refreshingLocation ? (
-                  <Text style={styles.refreshText}>Atualizando sua localização...</Text>
+                  <Text style={styles.refreshText}>Atualizando sua localizacao...</Text>
                 ) : null}
               </View>
 
@@ -224,37 +316,85 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Text style={styles.searchTitle}>Buscar manualmente por cidade ou bairro</Text>
                 <Text style={styles.searchText}>
-                  Use esta opção quando preferir explorar outra região ou quando a permissão de
-                  localização estiver desativada.
+                  Use esta opcao quando preferir explorar outra regiao ou quando a
+                  permissao de localizacao estiver desativada.
                 </Text>
 
                 <TextInput
                   autoCapitalize="words"
+                  editable={!isBusy}
                   onChangeText={setManualQuery}
                   onFocus={scrollToSearchPanel}
                   onSubmitEditing={() => void handleManualSearch()}
                   placeholder="Ex.: Centro, Cuiaba ou Barra do Garcas"
                   placeholderTextColor="#9CA3AF"
                   returnKeyType="search"
-                  style={styles.input}
+                  style={[styles.input, isBusy ? styles.inputDisabled : null]}
                   value={manualQuery}
                 />
 
                 <Pressable
+                  disabled={isBusy}
                   onPress={() => void handleManualSearch()}
-                  style={[styles.heroButton, styles.primaryHeroButton]}
+                  style={[
+                    styles.heroButton,
+                    styles.primaryHeroButton,
+                    isBusy ? styles.disabledButton : null,
+                  ]}
                 >
-                  <Text style={styles.primaryHeroButtonText}>
-                    {searchingManualArea ? 'Buscando...' : 'Buscar nessa area'}
-                  </Text>
+                  <Text style={styles.primaryHeroButtonText}>{manualButtonLabel}</Text>
                 </Pressable>
+              </View>
+
+              <View style={styles.favoritesSection}>
+                <Text style={styles.sectionEyebrow}>Favoritos</Text>
+                <Text style={styles.sectionTitle}>Centros salvos neste aparelho</Text>
+                <Text style={styles.sectionText}>
+                  Use esta lista para voltar rapido aos centros que voce quer acessar com
+                  mais frequencia.
+                </Text>
+
+                {loadingFavorites ? (
+                  <View style={styles.infoPanel}>
+                    <Text style={styles.infoPanelTitle}>Carregando favoritos salvos</Text>
+                    <Text style={styles.infoPanelText}>
+                      Assim que terminar, eles aparecem aqui no topo.
+                    </Text>
+                  </View>
+                ) : favoriteCenters.length ? (
+                  favoriteCenters.map((favoriteCenter) => (
+                    <CenterCard
+                      center={favoriteCenter}
+                      favoriteDisabled={updatingFavoriteId === favoriteCenter.id}
+                      isFavorite
+                      key={`favorite-${favoriteCenter.id}`}
+                      onPressDetails={() =>
+                        navigation.navigate('Details', {
+                          center: favoriteCenter,
+                          origin,
+                        })
+                      }
+                      onPressRoute={() => void handleOpenRoute(favoriteCenter)}
+                      onToggleFavorite={() => void handleToggleFavorite(favoriteCenter)}
+                    />
+                  ))
+                ) : (
+                  <View style={styles.infoPanel}>
+                    <Text style={styles.infoPanelTitle}>Voce ainda nao salvou favoritos</Text>
+                    <Text style={styles.infoPanelText}>
+                      Toque em "Salvar nos favoritos" em qualquer centro para manter uma
+                      lista rapida neste aparelho.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {shouldShowLoadingState ? <LoadingState /> : null}
               {error ? (
                 <ErrorState
+                  actionLabel={errorRetryLabel}
                   message={error}
-                  onRetry={() => void loadNearbyUsingCurrentLocation()}
+                  onRetry={handleRetryLastSearch}
                 />
               ) : null}
 
@@ -264,7 +404,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     {centers.length} centro(s) encontrado(s) por proximidade
                   </Text>
                   <Text style={styles.resultsSubtext}>
-                    Toque em um card para ver detalhes ou abrir a rota com facilidade.
+                    Toque em um card para ver detalhes, salvar nos favoritos ou abrir a
+                    rota com facilidade.
                   </Text>
                 </View>
               ) : null}
@@ -273,6 +414,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           renderItem={({ item }) => (
             <CenterCard
               center={item}
+              favoriteDisabled={updatingFavoriteId === item.id}
+              isFavorite={favoriteIds.has(item.id)}
               onPressDetails={() =>
                 navigation.navigate('Details', {
                   center: item,
@@ -280,12 +423,16 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 })
               }
               onPressRoute={() => void handleOpenRoute(item)}
+              onToggleFavorite={() => void handleToggleFavorite(item)}
             />
           )}
         />
 
         {!isKeyboardVisible ? (
           <View
+            onLayout={({ nativeEvent }) => {
+              setFooterHeight(nativeEvent.layout.height);
+            }}
             style={[
               styles.fixedAdFooter,
               {
@@ -302,6 +449,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  disabledButton: {
+    opacity: 0.6,
+  },
+  favoritesSection: {
+    gap: 12,
+    marginTop: 2,
+  },
   fixedAdFooter: {
     alignItems: 'center',
     backgroundColor: '#F8F5F0',
@@ -374,6 +528,26 @@ const styles = StyleSheet.create({
     top: 120,
     width: 110,
   },
+  infoPanel: {
+    ...theme.shadows.soft,
+    backgroundColor: theme.colors.backgroundAlt,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 4,
+    padding: 16,
+  },
+  infoPanelText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  infoPanelTitle: {
+    color: theme.colors.primaryDark,
+    fontSize: 15,
+    fontWeight: '800',
+  },
   input: {
     backgroundColor: theme.colors.white,
     borderColor: theme.colors.border,
@@ -382,6 +556,9 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     minHeight: 50,
     paddingHorizontal: 14,
+  },
+  inputDisabled: {
+    backgroundColor: theme.colors.surfaceMuted,
   },
   listContent: {
     flexGrow: 1,
@@ -453,6 +630,23 @@ const styles = StyleSheet.create({
   searchTitle: {
     color: theme.colors.primaryDark,
     fontSize: 17,
+    fontWeight: '800',
+  },
+  sectionEyebrow: {
+    color: theme.colors.info,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  sectionText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    color: theme.colors.primaryDark,
+    fontSize: 19,
     fontWeight: '800',
   },
   subtitle: {
