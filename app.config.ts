@@ -13,7 +13,7 @@ const admobIosAppId =
 const config: ExpoConfig = {
   name: 'Mapa Espírita',
   slug: 'centros-espiritas-proximos',
-  version: '2.0.2',
+  version: '2.0.3',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
   scheme: 'mapaespirita',
