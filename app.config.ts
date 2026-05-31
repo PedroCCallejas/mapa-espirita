@@ -11,9 +11,9 @@ const admobIosAppId =
   'ca-app-pub-3940256099942544~1458002511';
 
 const config: ExpoConfig = {
-  name: 'Mapa Espirita',
+  name: 'Mapa Espírita',
   slug: 'centros-espiritas-proximos',
-  version: '2.0.1',
+  version: '2.0.2',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
   scheme: 'mapaespirita',
@@ -35,7 +35,7 @@ const config: ExpoConfig = {
       'expo-location',
       {
         locationWhenInUsePermission:
-          'Permita o acesso a sua localizacao para encontrar centros espiritas proximos.',
+          'Permita o acesso à sua localização para encontrar centros espíritas próximos.',
       },
     ],
     [
@@ -49,11 +49,11 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.pedroccallejas.mapaespirita',
-    buildNumber: '3',
+    buildNumber: '4',
   },
   android: {
     package: 'com.pedroccallejas.mapaespirita',
-    versionCode: 3,
+    versionCode: 4,
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',

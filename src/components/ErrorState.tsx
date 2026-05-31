@@ -28,7 +28,7 @@ export function ErrorState({
         }
       : {
           badgeBackground: theme.colors.warningSoft,
-          badgeLabel: 'Algo saiu do esperado',
+          badgeLabel: 'Ocorreu um imprevisto',
           borderColor: '#F5C27A',
           containerBackground: '#FFF9F2',
           titleColor: '#9A3412',

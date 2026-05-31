@@ -306,7 +306,7 @@ async function searchText(query: string, origin: Coordinates) {
 export async function searchNearbyCenters(origin: Coordinates, areaLabel?: string) {
   const searches = await Promise.all(
     SEARCH_TERMS.map((term) => {
-      const query = areaLabel ? `${term} proximo de ${areaLabel}` : term;
+      const query = areaLabel ? `${term} próximo de ${areaLabel}` : term;
       return searchText(query, origin);
     }),
   );
@@ -352,7 +352,7 @@ export async function getCenterDetails(
       return options.fallback;
     }
 
-    throw new Error('Nao foi possivel montar os detalhes desse centro.');
+    throw new Error('Não foi possível montar os detalhes deste centro.');
   }
 
   return options.fallback ? mergeCenter(options.fallback, mapped) : mapped;
@@ -373,7 +373,7 @@ export async function geocodeAddressQuery(query: string) {
   const data = (await response.json()) as GeocodeResponse;
 
   if (data.status === 'ZERO_RESULTS' || !data.results?.length) {
-    throw new Error('Nenhuma cidade ou bairro foi encontrado com esse termo.');
+    throw new Error('Não encontramos nenhuma cidade ou bairro com esse termo.');
   }
 
   if (data.status && data.status !== 'OK') {
@@ -383,14 +383,14 @@ export async function geocodeAddressQuery(query: string) {
   const firstResult = data.results[0];
 
   if (!firstResult) {
-    throw new Error('Nenhuma cidade ou bairro foi encontrado com esse termo.');
+    throw new Error('Não encontramos nenhuma cidade ou bairro com esse termo.');
   }
 
   const latitude = firstResult.geometry?.location?.lat;
   const longitude = firstResult.geometry?.location?.lng;
 
   if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-    throw new Error('Nao foi possivel localizar as coordenadas dessa busca manual.');
+    throw new Error('Não foi possível localizar as coordenadas desta busca manual.');
   }
 
   return {

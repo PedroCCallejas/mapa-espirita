@@ -28,13 +28,13 @@ const statusAppearance = {
   UNKNOWN: {
     backgroundColor: theme.colors.warningSoft,
     color: theme.colors.warning,
-    label: 'Horario indisponivel',
+    label: 'Horário indisponível',
   },
 };
 
 function formatRating(center: Center) {
   if (typeof center.rating !== 'number') {
-    return 'Sem avaliacao';
+    return 'Sem avaliação';
   }
 
   const total = center.userRatingCount ? ` (${center.userRatingCount})` : '';
@@ -81,14 +81,14 @@ export function CenterCard({
         <Text style={styles.name}>{center.name}</Text>
 
         <View style={styles.addressBlock}>
-          <Text style={styles.addressLabel}>Endereco</Text>
+          <Text style={styles.addressLabel}>Endereço</Text>
           <Text style={styles.address}>{center.address}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.rating}>Avaliacao: {formatRating(center)}</Text>
+          <Text style={styles.rating}>Avaliação: {formatRating(center)}</Text>
           <Text style={styles.hours}>
-            {todayHours ? `Hoje: ${todayHours}` : 'Hoje: sem horario informado'}
+            {todayHours ? `Hoje: ${todayHours}` : 'Hoje: horário não informado'}
           </Text>
         </View>
 

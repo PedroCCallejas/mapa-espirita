@@ -4,7 +4,7 @@ import type { Coordinates } from '../types/center';
 
 export class LocationPermissionDeniedError extends Error {
   constructor() {
-    super('Permissao de localizacao negada pelo usuario.');
+    super('Permissão de localização negada pelo usuário.');
     this.name = 'LocationPermissionDeniedError';
   }
 }

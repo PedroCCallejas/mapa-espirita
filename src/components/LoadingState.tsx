@@ -83,9 +83,9 @@ const styles = StyleSheet.create({
   },
   inlineMessage: {
     color: theme.colors.textMuted,
+    flex: 1,
     fontSize: 15,
     lineHeight: 21,
-    flex: 1,
   },
   skeletonList: {
     gap: 0,

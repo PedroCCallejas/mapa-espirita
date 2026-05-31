@@ -41,7 +41,7 @@ function StatusLabel({ center }: { center: Center }) {
   const labelMap = {
     CLOSED: 'Fechado',
     OPEN: 'Aberto agora',
-    UNKNOWN: 'Horario indisponivel',
+    UNKNOWN: 'Horário indisponível',
   };
 
   return <Text style={styles.statusLabel}>{labelMap[center.status]}</Text>;
@@ -55,7 +55,7 @@ function formatBusinessStatus(businessStatus?: string | null) {
   const labelMap: Record<string, string> = {
     CLOSED_PERMANENTLY: 'Fechado permanentemente',
     CLOSED_TEMPORARILY: 'Fechado temporariamente',
-    OPERATIONAL: 'Em operacao',
+    OPERATIONAL: 'Em operação',
   };
 
   return labelMap[businessStatus] ?? businessStatus;
@@ -91,7 +91,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
           setError(
             detailsError instanceof Error
               ? detailsError.message
-              : 'Nao foi possivel carregar os detalhes completos desse centro.',
+              : 'Não foi possível carregar os detalhes completos deste centro.',
           );
         }
       } finally {
@@ -122,7 +122,10 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
         }
       } catch {
         if (active) {
-          setError((currentError) => currentError ?? 'Nao foi possivel carregar seus favoritos.');
+          setError(
+            (currentError) =>
+              currentError ?? 'Não foi possível carregar seus favoritos salvos.',
+          );
         }
       }
     };
@@ -152,7 +155,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
       const result = await toggleFavoriteCenter(center);
       setIsFavorite(result.isFavorite);
     } catch {
-      setError('Nao foi possivel atualizar seus favoritos locais. Tente novamente.');
+      setError('Não foi possível atualizar seus favoritos neste aparelho. Tente novamente.');
     } finally {
       setUpdatingFavorite(false);
     }
@@ -168,7 +171,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
           <Image source={{ uri: center.photo.url }} style={styles.heroImage} />
         ) : (
           <View style={[styles.heroImage, styles.heroFallback]}>
-            <Text style={styles.heroFallbackText}>Sem foto disponivel</Text>
+            <Text style={styles.heroFallbackText}>Sem foto disponível</Text>
           </View>
         )}
 
@@ -183,7 +186,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
 
           {typeof center.rating === 'number' ? (
             <Text style={styles.rating}>
-              Avaliacao: {center.rating.toFixed(1)}
+              Avaliação: {center.rating.toFixed(1)}
               {center.userRatingCount ? ` (${center.userRatingCount})` : ''}
             </Text>
           ) : null}
@@ -192,10 +195,10 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
         </View>
 
         <View style={styles.panel}>
-          <Text style={styles.sectionTitle}>Informacoes</Text>
+          <Text style={styles.sectionTitle}>Informações</Text>
           <InfoRow label="Telefone" value={center.phone} />
           <InfoRow label="Site" value={center.website} />
-          <InfoRow label="Endereco" value={center.address} />
+          <InfoRow label="Endereço" value={center.address} />
           <InfoRow
             label="Status do estabelecimento"
             value={formatBusinessStatus(center.businessStatus)}
@@ -203,7 +206,7 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
         </View>
 
         <View style={styles.panel}>
-          <Text style={styles.sectionTitle}>Horarios</Text>
+          <Text style={styles.sectionTitle}>Horário de funcionamento</Text>
           {translatedWeekdayDescriptions.length ? (
             translatedWeekdayDescriptions.map((item) => (
               <Text key={item} style={styles.hoursLine}>
@@ -211,13 +214,13 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
               </Text>
             ))
           ) : (
-            <Text style={styles.emptyText}>Nenhum horario informado pelo Google.</Text>
+            <Text style={styles.emptyText}>Nenhum horário informado pelo Google.</Text>
           )}
         </View>
 
         <View style={styles.actions}>
           <Pressable onPress={handleOpenRoute} style={[styles.button, styles.primaryButton]}>
-            <Text style={styles.primaryButtonText}>Abrir rota no Google Maps</Text>
+            <Text style={styles.primaryButtonText}>Como chegar</Text>
           </Pressable>
 
           <Pressable
@@ -251,14 +254,14 @@ export function DetailsScreen({ route }: DetailsScreenProps) {
 
         {loading ? (
           <LoadingState
-            message="Atualizando detalhes e horarios..."
+            message="Atualizando detalhes e horários..."
             showSkeletons={false}
           />
         ) : null}
         {error ? (
           <ErrorState
             message={error}
-            title="Mostrando os dados ja encontrados"
+            title="Mostrando os dados já encontrados"
           />
         ) : null}
       </ScrollView>
